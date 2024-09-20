@@ -51,7 +51,6 @@ public class TutorialControllerTests {
   @Test
   void shouldReturnTutorial() throws Exception {
     long id = 1L;
-
     Tutorial tutorial = new Tutorial(id, "Spring Boot @WebMvcTest", "Description", true);
 
 
