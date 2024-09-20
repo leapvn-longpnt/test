@@ -53,6 +53,7 @@ public class TutorialControllerTests {
     long id = 1L;
     Tutorial tutorial = new Tutorial(id, "Spring Boot @WebMvcTest", "Description", true);
 
+
     when(tutorialRepository.findById(id)).thenReturn(Optional.of(tutorial));
     mockMvc.perform(get("/api/tutorials/{id}", id)).andExpect(status().isOk())
         .andExpect(jsonPath("$.id").value(id))
