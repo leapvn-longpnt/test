@@ -52,6 +52,7 @@ public class TutorialControllerTests {
   void shouldReturnTutorial() throws Exception {
 
     long id = 1L;
+
     Tutorial tutorial = new Tutorial(id, "Spring Boot @WebMvcTest", "Description", true);
 
     when(tutorialRepository.findById(id)).thenReturn(Optional.of(tutorial));
