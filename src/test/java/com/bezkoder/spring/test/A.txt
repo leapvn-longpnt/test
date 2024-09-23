@@ -1,0 +1,470 @@
+To implement Kafka producer and consumer services in different Spring Boot modules, you can follow these steps:
+
+### Project Structure
+
+Here's how you might structure your multi-module project:
+
+```
+my-kafka-app
+├── kafka-producer
+│   ├── src
+│   │   └── main
+│   │       ├── java
+│   │       │   └── com
+│   │       │       └── example
+│   │       │           ├── config
+│   │       │           │   └── KafkaProducerConfig.java
+│   │       │           ├── producer
+│   │       │           │   ├── ProducerService.java
+│   │       │           │   └── ProducerController.java
+│   │       └── resources
+│   │           └── application.yml
+│   └── pom.xml
+├── kafka-consumer
+│   ├── src
+│   │   └── main
+│   │       ├── java
+│   │       │   └── com
+│   │       │       └── example
+│   │       │           ├── config
+│   │       │           │   └── KafkaConsumerConfig.java
+│   │       │           └── consumer
+│   │       │               ├── ConsumerService.java
+│   │       │               └── ConsumerController.java
+│   │       └── resources
+│   │           └── application.yml
+└── pom.xml
+```
+
+### 1. **Parent POM**
+
+Create a parent `pom.xml` file to manage dependencies and module versions:
+
+```xml
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>com.example</groupId>
+    <artifactId>my-kafka-app</artifactId>
+    <version>1.0-SNAPSHOT</version>
+    <packaging>pom</packaging>
+
+    <modules>
+        <module>kafka-producer</module>
+        <module>kafka-consumer</module>
+    </modules>
+
+    <properties>
+        <java.version>11</java.version>
+        <spring.version>2.7.0</spring.version>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-dependencies</artifactId>
+                <version>${spring.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+</project>
+```
+
+### 2. **Kafka Producer Module**
+
+#### **Producer POM (kafka-producer/pom.xml)**
+
+```xml
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>com.example</groupId>
+        <artifactId>my-kafka-app</artifactId>
+        <version>1.0-SNAPSHOT</version>
+    </parent>
+    <artifactId>kafka-producer</artifactId>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.kafka</groupId>
+            <artifactId>spring-kafka</artifactId>
+        </dependency>
+    </dependencies>
+</project>
+```
+
+#### **Kafka Producer Configuration**
+
+```java
+package com.example.config;
+
+import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.common.serialization.StringSerializer;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.kafka.core.DefaultKafkaProducerFactory;
+import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.kafka.core.ProducerFactory;
+
+import java.util.HashMap;
+import java.util.Map;
+
+@Configuration
+public class KafkaProducerConfig {
+
+    @Bean
+    public ProducerFactory<String, String> producerFactory() {
+        Map<String, Object> configProps = new HashMap<>();
+        configProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092");
+        configProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
+        configProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
+        return new DefaultKafkaProducerFactory<>(configProps);
+    }
+
+    @Bean
+    public KafkaTemplate<String, String> kafkaTemplate() {
+        return new KafkaTemplate<>(producerFactory());
+    }
+}
+```
+
+#### **Producer Service and Controller**
+
+```java
+package com.example.producer;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/api/producer")
+public class ProducerController {
+
+    private final KafkaTemplate<String, String> kafkaTemplate;
+
+    @Autowired
+    public ProducerController(KafkaTemplate<String, String> kafkaTemplate) {
+        this.kafkaTemplate = kafkaTemplate;
+    }
+
+    @PostMapping("/send")
+    public void sendMessage(@RequestParam String topic, @RequestParam String key, @RequestBody String message) {
+        kafkaTemplate.send(topic, key, message);
+    }
+}
+```
+
+### 3. **Kafka Consumer Module**
+
+#### **Consumer POM (kafka-consumer/pom.xml)**
+
+```xml
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>com.example</groupId>
+        <artifactId>my-kafka-app</artifactId>
+        <version>1.0-SNAPSHOT</version>
+    </parent>
+    <artifactId>kafka-consumer</artifactId>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.kafka</groupId>
+            <artifactId>spring-kafka</artifactId>
+        </dependency>
+    </dependencies>
+</project>
+```
+
+#### **Kafka Consumer Configuration**
+
+```java
+package com.example.config;
+
+import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.common.serialization.StringDeserializer;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.kafka.annotation.EnableKafka;
+import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
+import org.springframework.kafka.core.ConsumerFactory;
+import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
+
+import java.util.HashMap;
+import java.util.Map;
+
+@EnableKafka
+@Configuration
+public class KafkaConsumerConfig {
+
+    @Bean
+    public ConsumerFactory<String, String> consumerFactory() {
+        Map<String, Object> props = new HashMap<>();
+        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092");
+        props.put(ConsumerConfig.GROUP_ID_CONFIG, "default-group");
+        props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
+        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
+        return new DefaultKafkaConsumerFactory<>(props);
+    }
+
+    @Bean
+    public ConcurrentKafkaListenerContainerFactory<String, String> kafkaListenerContainerFactory() {
+        ConcurrentKafkaListenerContainerFactory<String, String> factory =
+                new ConcurrentKafkaListenerContainerFactory<>();
+        factory.setConsumerFactory(consumerFactory());
+        return factory;
+    }
+}
+```
+
+#### **Consumer Service**
+
+```java
+package com.example.consumer;
+
+import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.stereotype.Service;
+
+@Service
+public class ConsumerService {
+
+    @KafkaListener(topics = "your-topic-name", groupId = "default-group")
+    public void consume(String message) {
+        System.out.println("Consumed message: " + message);
+        // Add your processing logic here
+    }
+}
+```
+
+### 4. **Application Properties**
+
+Each module will have its own `application.yml` or `application.properties`. Here's a simple example for the consumer:
+
+```yaml
+# kafka-consumer/src/main/resources/application.yml
+spring:
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: default-group
+```
+
+And for the producer:
+
+```yaml
+# kafka-producer/src/main/resources/application.yml
+spring:
+  kafka:
+    bootstrap-servers: localhost:9092
+```
+
+### 5. **Running the Modules**
+
+1. **Run Kafka**: Ensure your Kafka broker is running and the necessary topics are created.
+2. **Build the Project**: Use Maven to build the entire project from the parent directory:
+
+   ```bash
+   mvn clean install
+   ```
+
+3. **Run Each Module**: You can run each module
+
+
+
+To implement retry logic for Kafka producer and consumer services in your Spring Boot modules, you can utilize Spring Kafka's built-in retry capabilities. Here's how you can do it for both producer and consumer services:
+
+### 1. **Retry Logic for Producer**
+
+For the producer, you can use the `RetryTemplate` along with a configuration for the Kafka template. Here’s how to implement it:
+
+#### **Producer Configuration with Retry**
+
+Modify the `KafkaProducerConfig` class to include a retry template.
+
+```java
+package com.example.config;
+
+import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.common.serialization.StringSerializer;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.kafka.core.DefaultKafkaProducerFactory;
+import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.kafka.core.ProducerFactory;
+import org.springframework.retry.backoff.ExponentialRandomBackOffPolicy;
+import org.springframework.retry.policy.SimpleRetryPolicy;
+import org.springframework.retry.support.RetryTemplate;
+
+import java.util.HashMap;
+import java.util.Map;
+
+@Configuration
+public class KafkaProducerConfig {
+
+    @Bean
+    public ProducerFactory<String, String> producerFactory() {
+        Map<String, Object> configProps = new HashMap<>();
+        configProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092");
+        configProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
+        configProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
+        return new DefaultKafkaProducerFactory<>(configProps);
+    }
+
+    @Bean
+    public KafkaTemplate<String, String> kafkaTemplate() {
+        return new KafkaTemplate<>(producerFactory());
+    }
+
+    @Bean
+    public RetryTemplate retryTemplate() {
+        RetryTemplate retryTemplate = new RetryTemplate();
+
+        SimpleRetryPolicy retryPolicy = new SimpleRetryPolicy();
+        retryPolicy.setMaxAttempts(3); // Set max attempts
+
+        ExponentialRandomBackOffPolicy backOffPolicy = new ExponentialRandomBackOffPolicy();
+        backOffPolicy.setInitialInterval(1000); // Initial interval in milliseconds
+        backOffPolicy.setMaxInterval(10000); // Maximum interval in milliseconds
+        backOffPolicy.setMultiplier(2.0); // Backoff multiplier
+
+        retryTemplate.setRetryPolicy(retryPolicy);
+        retryTemplate.setBackOffPolicy(backOffPolicy);
+
+        return retryTemplate;
+    }
+}
+```
+
+#### **Using Retry in Producer Service**
+
+Modify the `ProducerService` to use the `RetryTemplate` when sending messages.
+
+```java
+package com.example.producer;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.retry.support.RetryTemplate;
+import org.springframework.stereotype.Service;
+
+@Service
+public class ProducerService {
+
+    private final KafkaTemplate<String, String> kafkaTemplate;
+    private final RetryTemplate retryTemplate;
+
+    @Autowired
+    public ProducerService(KafkaTemplate<String, String> kafkaTemplate, RetryTemplate retryTemplate) {
+        this.kafkaTemplate = kafkaTemplate;
+        this.retryTemplate = retryTemplate;
+    }
+
+    public void sendMessage(String topic, String key, String message) {
+        retryTemplate.execute(context -> {
+            kafkaTemplate.send(topic, key, message);
+            return null;
+        });
+    }
+}
+```
+
+### 2. **Retry Logic for Consumer**
+
+For the consumer, you can configure retry handling by setting the `ListenerContainer` properties in the `KafkaConsumerConfig`.
+
+#### **Consumer Configuration with Retry**
+
+Modify the `KafkaConsumerConfig` class:
+
+```java
+package com.example.config;
+
+import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.common.serialization.StringDeserializer;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.kafka.annotation.EnableKafka;
+import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
+import org.springframework.kafka.core.ConsumerFactory;
+import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
+import org.springframework.kafka.listener.config.ContainerProperties;
+import org.springframework.kafka.listener.retry.RetryTopicConfiguration;
+
+import java.util.HashMap;
+import java.util.Map;
+
+@EnableKafka
+@Configuration
+public class KafkaConsumerConfig {
+
+    @Bean
+    public ConsumerFactory<String, String> consumerFactory() {
+        Map<String, Object> props = new HashMap<>();
+        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092");
+        props.put(ConsumerConfig.GROUP_ID_CONFIG, "default-group");
+        props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
+        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
+        return new DefaultKafkaConsumerFactory<>(props);
+    }
+
+    @Bean
+    public ConcurrentKafkaListenerContainerFactory<String, String> kafkaListenerContainerFactory() {
+        ConcurrentKafkaListenerContainerFactory<String, String> factory =
+                new ConcurrentKafkaListenerContainerFactory<>();
+        factory.setConsumerFactory(consumerFactory());
+        
+        // Set the retry logic
+        factory.setConcurrency(3); // Set number of concurrent consumers
+        factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL_IMMEDIATE);
+        
+        // Retry on error
+        factory.setRetryTemplate(retryTemplate());
+        
+        return factory;
+    }
+
+    @Bean
+    public RetryTemplate retryTemplate() {
+        RetryTemplate retryTemplate = new RetryTemplate();
+
+        SimpleRetryPolicy retryPolicy = new SimpleRetryPolicy();
+        retryPolicy.setMaxAttempts(3); // Set max attempts
+
+        ExponentialRandomBackOffPolicy backOffPolicy = new ExponentialRandomBackOffPolicy();
+        backOffPolicy.setInitialInterval(1000); // Initial interval in milliseconds
+        backOffPolicy.setMaxInterval(10000); // Maximum interval in milliseconds
+        backOffPolicy.setMultiplier(2.0); // Backoff multiplier
+
+        retryTemplate.setRetryPolicy(retryPolicy);
+        retryTemplate.setBackOffPolicy(backOffPolicy);
+
+        return retryTemplate;
+    }
+}
+```
+
+### Summary
+
+- **Producer**: Utilizes `RetryTemplate` to handle retries when sending messages. The retry configuration includes a maximum number of attempts and a backoff strategy.
+  
+- **Consumer**: Configures retry logic within the listener container using `RetryTemplate`, allowing for automatic retries on message processing failures.
+
+With this setup, both your producer and consumer services will handle retries gracefully, improving the resilience of your Kafka interactions.
