@@ -1,6 +1,11 @@
 package com.bezkoder.spring.test.model;
 
-import jakarta.persistence.*;
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
+import javax.persistence.Id;
+import javax.persistence.Table;
 
 @Entity
 @Table(name = "tutorials")
@@ -28,7 +33,7 @@ public class Tutorial {
     this.description = description;
     this.published = published;
   }
-  
+
   public Tutorial(long id, String title, String description, boolean published) {
     this.id = id;
     this.title = title;
