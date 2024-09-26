@@ -1,0 +1,27 @@
+   @Test
+    void testSearch() {
+        // Arrange
+        GetFlightOffersQuery query = new GetFlightOffersQuery();
+        FareMasterPricerTravelBoardSearchReply mockReply = mock(FareMasterPricerTravelBoardSearchReply.class);
+        SuccessShopping expectedSuccessShopping = new SuccessShopping();
+
+        when(soapServiceHandler.fareMasterPricerBoardSearch(
+                eq(TransactionStatusCode.NONE),
+                eq(LinkStatusCode.NONE),
+                any()
+        )).thenReturn(mockReply);
+        
+        when(searchQueryMapper.toFareMasterPricerTravelBoardSearch(query)).thenReturn(mock(FareMasterPricerTravelBoardSearchReply.class));
+        when(searchResultMapper.toSuccessShopping(mockReply, query)).thenReturn(expectedSuccessShopping);
+
+        // Act
+        SuccessShopping result = flightOfferSearchService.search(query);
+
+        // Assert
+        assertEquals(expectedSuccessShopping, result);
+
+        verify(soapServiceHandler, times(1)).fareMasterPricerBoardSearch(any(), any(), any());
+        verify(searchQueryMapper, times(1)).toFareMasterPricerTravelBoardSearch(query);
+        verify(searchResultMapper, times(1)).toSuccessShopping(mockReply, query);
+    }
+}
